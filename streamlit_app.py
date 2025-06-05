@@ -1,44 +1,77 @@
-import streamlit as st 
+import streamlit as st
+import pandas as pd
+import datetime
 import requests
 
-# Set the app title 
-st.title('My first class with Dr. Zamri !!') 
+st.set_page_config(page_title="Student Travel Planner", layout="centered")
 
-# Add a welcome message 
-st.write('Welcome to my ACAP Streamlit app!') 
+# Supabase - Optional config (mocked here)
+SAVE_TO_DATABASE = False  # Toggle True if Supabase is configured
 
-# Create a text input 
-widgetuser_input = st.text_input('Enter a custom message:', 'Hello, Streamlit!') 
+# Google Maps Embed function
+def show_map(destination):
+    base_url = "https://www.google.com/maps/embed/v1/place"
+    api_key = "YOUR_GOOGLE_MAPS_API_KEY"  # Replace with your key
+    return f"{base_url}?key={api_key}&q={destination}"
 
-# Display the customized message 
-st.write('Customized Message:', widgetuser_input)
+# Packing list generator
+def generate_packing_list(destination):
+    general = ["🧥 Clothes", "🎧 Earphones", "🔌 Power bank", "🎫 Student ID"]
+    beach_items = ["🩱 Swimsuit", "🧴 Sunscreen", "🕶 Sunglasses"]
+    cold_items = ["🧤 Gloves", "🧣 Scarf", "🧥 Jacket"]
 
-# First, get the list of all currencies (we'll use MYR as default for this request)
-initial_response = requests.get('https://api.vatcomply.com/rates?base=MYR')
-
-if initial_response.status_code == 200:
-    initial_data = initial_response.json()
-    all_currencies = sorted(initial_data['rates'].keys())
-
-    # Add MYR to the list if it's not there (since MYR is the base, it may not appear in 'rates')
-    if 'MYR' not in all_currencies:
-        all_currencies.append('MYR')
-        all_currencies.sort()
-
-    # Dropdown for selecting base currency
-    base_currency = st.selectbox('Select your base currency:', all_currencies)
-
-    # Fetch exchange rates for the selected base currency
-    response = requests.get(f'https://api.vatcomply.com/rates?base={base_currency}')
-
-    if response.status_code == 200:
-        data = response.json()
-        rates = data['rates']
-
-        st.write(f"### Exchange Rates for 1 {base_currency}")
-        st.json(rates)  # display all exchange rates in JSON format
-
+    if destination.lower() in ["langkawi", "penang"]:
+        return general + beach_items
+    elif destination.lower() in ["cameron highlands"]:
+        return general + cold_items
     else:
-        st.error(f"API call failed with status code: {response.status_code}")
-else:
-    st.error(f"Failed to fetch initial currency list. Status code: {initial_response.status_code}")
+        return general
+
+# UI
+st.title("🎒 Student Travel Planner")
+st.subheader("Plan your next student adventure easily!")
+
+destination = st.selectbox("🌍 Select Destination", ["Kuala Lumpur", "Langkawi", "Penang", "Singapore", "Cameron Highlands"])
+days = st.slider("📅 Number of Days", 1, 14, 3)
+start_date = st.date_input("📆 Start Date", datetime.date.today())
+budget = st.number_input("💸 Enter your total budget (MYR)", value=500)
+
+# Google Maps iframe
+with st.expander("📍 Show Map"):
+    if "YOUR_GOOGLE_MAPS_API_KEY" in show_map(destination):
+        st.warning("<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<div id="map" style="height: 400px;"></div>
+<script>
+  var map = L.map('map').setView([51.505, -0.09], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(map);
+</script>
+")
+    else:
+        st.components.v1.iframe(show_map(destination), height=400)
+
+# Button
+if st.button("✨ Generate Trip Plan"):
+    daily_budget = budget / days
+    end_date = start_date + datetime.timedelta(days=days - 1)
+
+    st.success("✅ Trip Summary")
+    st.write(f"📍 **Destination**: {destination}")
+    st.write(f"📅 **From**: {start_date.strftime('%b %d, %Y')} to {end_date.strftime('%b %d, %Y')}")
+    st.write(f"💸 **Daily Budget**: RM {daily_budget:.2f}")
+
+    st.markdown("### 🧳 Packing List")
+    for item in generate_packing_list(destination):
+        st.write(f"- {item}")
+
+    st.markdown("### 💡 Student Travel Tips")
+    st.info("Use student ID for travel & museum discounts!")
+    st.info("Book accommodations early for cheaper rates!")
+
+    # Optional: Save to Supabase (mocked)
+    if SAVE_TO_DATABASE:
+        st.write("🛠 Saving trip to database... (Simulated)")
+
